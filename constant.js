@@ -1,24 +1,25 @@
 const sql = require('mssql');
 
+// Db creds 
 const config = {
-    user: 'sa',             // SQL Server username
-    password: 'admin',      // SQL Server password
-    server: 'BHOOMI',    // You can change this to your server IP or domain
-    database: 'sample', // Replace with your database name
+    user: 'sa',             
+    password: 'admin',      
+    server: 'BHOOMI',    
+    database: 'sample', 
     options: {
-        encrypt: true,      // Use true if you're connecting to Azure
-        trustServerCertificate: true ,// Use true for self-signed certificates
+        encrypt: true,      
+        trustServerCertificate: true ,
         instancename:"SQLEXPRESS"    },
         port:1433
 };
 
 
-
+// a function to check the tenant id 
 const tenantCheck = async (tenant) => {
     console.log(tenant)
     console.log("Tenant check", config);
     let pool;
-    let transaction;
+    let transaction;    
 
     try {
         pool = new sql.ConnectionPool(config);
@@ -30,7 +31,7 @@ const tenantCheck = async (tenant) => {
         
       
         const checkQuery = `select * from Tenants where tenantID= @tenant   `;
-        request.input('tenant',  sql.Int, tenant); // Assuming tenantID is of type INT
+        request.input('tenant',  sql.Int, tenant); 
 
         const result = await request.query(checkQuery);
         const recordset = result.recordset;
@@ -40,22 +41,21 @@ const tenantCheck = async (tenant) => {
             const insertQuery = `INSERT INTO Tenants (tenantID, storageLimitMB)
                                  VALUES (@tenant, @storageLimit)`;
           
-            request.input('storageLimit', sql.Int, 500); // Assuming limit is in MB
-
+            request.input('storageLimit', sql.Int, 500); 
             await request.query(insertQuery);
         }
 
-        // Commit the transaction
+        
         await transaction.commit();
 
         console.log('Tenant checked/inserted successfully');
     } catch (err) {
         console.log(err);
         
-        // Rollback in case of an error
+     
         if (transaction) await transaction.rollback();
 
-        // Handle unique constraint violation (duplicate key)
+       
         if (err.number === 2627 || err.number === 2601) {
             return {
                 status: 409,
@@ -71,7 +71,7 @@ const tenantCheck = async (tenant) => {
         };
     } finally {
         if (pool) {
-            await pool.close(); // Close the pool connection in the finally block
+            await pool.close();
         }
     }
 };

@@ -3,35 +3,8 @@ const sql = require('mssql');
 const { config, tenantCheck } = require('./constant');
 
 const moment = require('moment');
-const hello = async (req, res) => {
-    console.log("_______________", config)
-    // Create a new connection pool
 
-    try {
-        const pool = new sql.ConnectionPool(config);
-        await pool.connect();
-        const transaction = new sql.Transaction(pool);
-        await transaction.begin();
-
-        const request = new sql.Request(transaction); // Create a request object for the transaction
-        const query = 'SELECT * FROM TestTable'; // Query to retrieve data
-        const result = await request.query(query); // Execute the query
-
-        await transaction.commit(); // Commit the transaction
-
-        const response = {
-            status: 200,
-            data: result.recordset
-        };
-
-        res.status(200).send(response); // Send the response
-    } catch (err) {
-        console.log(err)
-        await transaction.rollback();
-        console.error('Error during database transaction: ', err);
-        res.status(500).send({ status: 500, message: 'Server error' });
-    }
-};
+// api to get the keyValue 
 
 const getApi = async (req, res) => {
 
@@ -43,7 +16,7 @@ const getApi = async (req, res) => {
         const transaction = new sql.Transaction(pool)
         await transaction.begin()
         const request = pool.request();
-       
+
         const keyParam = req.params.key
         console.log(keyParam)
 
@@ -95,12 +68,12 @@ const getApi = async (req, res) => {
     }
     finally {
         if (pool) {
-            await pool.close(); // Close the pool connection in the finally block
+            await pool.close();
         }
+
     }
-
 }
-
+//api to post the keyValue where the payload should have a key,valu,ttl , and teneantID
 const postApi = async (req, res) => {
     console.log("postApi ", config)
     let pool
@@ -112,9 +85,9 @@ const postApi = async (req, res) => {
         const request = pool.request();
         const { key, data, ttl } = req.body
         console.log("payload", key, data, ttl)
-        const tenant=req.body.tenantID
+        const tenant = req.body.tenantID
         console.log(tenant);
-        
+
 
         if (!tenant) {
             return res.status(400).send({
@@ -122,7 +95,7 @@ const postApi = async (req, res) => {
                 message: "Tenant ID is required."
             });
         }
-        const tenantcheck=await tenantCheck(tenant)
+        const tenantcheck = await tenantCheck(tenant)
 
         if (!key || !data || !ttl) {
             res.status(400).send({
@@ -144,7 +117,7 @@ const postApi = async (req, res) => {
                 error: "Duplicate Key Error",
                 message: `The key '${key}' already exists for tenant ID '${tenant}'.`
             });
-            
+
         }
 
         const postQuery = ` INSERT INTO KeyValue ([key], data, ttl,tenantID) 
@@ -171,14 +144,6 @@ const postApi = async (req, res) => {
             });
         }
 
-
-
-
-
-
-
-
-
     }
     catch (err) {
         // Rollback in case of an error
@@ -199,11 +164,12 @@ const postApi = async (req, res) => {
     }
     finally {
         if (pool) {
-            await pool.close(); // Close the pool connection in the finally block
+            await pool.close();
         }
     }
 }
 
+//delete api 
 const deleteApi = async (req, res) => {
     console.log("deleteAPi", config)
     let pool
@@ -222,9 +188,9 @@ const deleteApi = async (req, res) => {
             res.status(400).send({ status: 400, response: 'Please specify correct key in path parms to delete' })
 
         }
-        const tenant=req.body.tenantID
+        const tenant = req.body.tenantID
         console.log(tenant);
-        
+
 
         if (!tenant) {
             return res.status(400).send({
@@ -232,7 +198,7 @@ const deleteApi = async (req, res) => {
                 message: "Tenant ID is required."
             });
         }
-        const tenantcheck=await tenantCheck(tenant)
+        const tenantcheck = await tenantCheck(tenant)
         const deleteQuery = `
         UPDATE KeyValue 
         SET is_active = 0 
@@ -273,7 +239,14 @@ const deleteApi = async (req, res) => {
         }
     }
 }
+//api for batch insertion n have included batchSize as 1000
 
+
+// A batch limit of 1000 balances efficiency and resource utilization.
+// Handling more than 1000 entries in a single request could lead to performance issues
+// due to the high number of database transactions and potential memory overhead,
+// especially when concurrent requests are made by multiple clients.
+// This limit helps maintain optimal throughput and minimizes latency.
 const batchApi = async (req, res) => {
     console.log("postApi ", config);
     let pool;
@@ -283,15 +256,15 @@ const batchApi = async (req, res) => {
         await pool.connect();
         const transaction = new sql.Transaction(pool);
         await transaction.begin();
-        
-          const payload = req.body.keys; 
+
+        const payload = req.body.keys;
         console.log(req.body)
         console.log(payload);
-        
-      
-        const tenant=req.body.tenantID
+
+
+        const tenant = req.body.tenantID
         console.log(tenant);
-        
+
 
         if (!tenant) {
             return res.status(400).send({
@@ -299,7 +272,7 @@ const batchApi = async (req, res) => {
                 message: "Tenant ID is required."
             });
         }
-        const tenantcheck=await tenantCheck(tenant)
+        const tenantcheck = await tenantCheck(tenant)
 
         const batchSize = 1000;
         for (let i = 0; i < payload.length; i += batchSize) {
@@ -314,38 +287,38 @@ const batchApi = async (req, res) => {
                     });
                 }
 
-                const expirationDateTime =  moment().add(ttl, 'seconds').toISOString();
+                const expirationDateTime = moment().add(ttl, 'seconds').toISOString();
 
-                const request = new sql.Request(transaction); 
+                const request = new sql.Request(transaction);
                 const checkQuery = `SELECT COUNT(*) AS count FROM KeyValue WHERE [key] = @key AND tenantID = @tenantID`;
-        const checkRequest = new sql.Request(transaction);
-        checkRequest.input('key', sql.VarChar, key);
-        checkRequest.input('tenantID', sql.Int, tenant);
+                const checkRequest = new sql.Request(transaction);
+                checkRequest.input('key', sql.VarChar, key);
+                checkRequest.input('tenantID', sql.Int, tenant);
 
-        const checkResult = await checkRequest.query(checkQuery);
-        if (checkResult.recordset[0].count > 0) {
-            // Throw an error for duplicate key
-            return res.status(409).send({
-                error: "Duplicate Key Error",
-                message: `The key '${key}' already exists for tenant ID '${tenant}'.`
-            });
-        }
+                const checkResult = await checkRequest.query(checkQuery);
+                if (checkResult.recordset[0].count > 0) {
+                    // Throw an error for duplicate key
+                    return res.status(409).send({
+                        error: "Duplicate Key Error",
+                        message: `The key '${key}' already exists for tenant ID '${tenant}'.`
+                    });
+                }
 
                 const postQuery = ` INSERT INTO KeyValue ([key], data, ttl,tenantID) 
                                 VALUES (@key,@data,@ttl,@tenantID)`;
-        request.input('key', sql.VarChar, key);
-        request.input('data', sql.NVarChar, JSON.stringify(data));
-        request.input('ttl', sql.DateTime, expirationDateTime);
-        request.input('tenantID', sql.Int, tenant);
+                request.input('key', sql.VarChar, key);
+                request.input('data', sql.NVarChar, JSON.stringify(data));
+                request.input('ttl', sql.DateTime, expirationDateTime);
+                request.input('tenantID', sql.Int, tenant);
 
 
                 const result = await request.query(postQuery);
-                rowsAffectedTotal += result.rowsAffected[0]; 
+                rowsAffectedTotal += result.rowsAffected[0];
             }
         }
 
-        await transaction.commit(); 
-        
+        await transaction.commit();
+
         if (rowsAffectedTotal > 0) {
             return res.status(200).send({ status: 200, response: 'Inserted successfully', totalRecordsInserted: rowsAffectedTotal });
         } else {
@@ -355,11 +328,10 @@ const batchApi = async (req, res) => {
             });
         }
     } catch (err) {
-        // Rollback in case of an error
+      
         console.log(err);
 
 
-        // Handle unique constraint violation (duplicate key)
         if (err.number === 2627 || err.number === 2601) {
             return res.status(409).send({
                 "error": "Duplicate Key Error",
@@ -370,7 +342,7 @@ const batchApi = async (req, res) => {
 
         console.error('Error during database transaction: ', err);
         return res.status(500).send({ status: 500, message: 'Server error' });
-    }finally {
+    } finally {
         if (pool) {
             await pool.close();
         }
@@ -379,5 +351,5 @@ const batchApi = async (req, res) => {
 
 
 module.exports = {
-    hello, getApi, postApi, deleteApi,batchApi
+    getApi, postApi, deleteApi, batchApi
 };
