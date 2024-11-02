@@ -51,7 +51,7 @@ Fetch a key-value object based on the specified key.
 URL: /api/object/:key
 Example: http://localhost:3000/api/object/key3
 
-2.##  POST /api/object
+2.## POST /api/object
 Create a new key-value pair.
 
 URL: /api/object
@@ -66,7 +66,7 @@ Payload:
     "tenantID": 5
 }
 
-3. ##  DELETE /api/object/:key
+3. ## DELETE /api/object/:key
 Delete a key-value object based on the specified key.
 
 URL: /api/object/:key
