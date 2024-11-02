@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get('/object/:key?', getApi); 
 router.post('/object',postApi); 
-router.post('/object/:key',deleteApi); 
+router.post('/object/:key',deleteApi) ;  
 router.post('/batch/object',batchApi)
 
 module.exports = {
