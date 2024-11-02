@@ -45,7 +45,7 @@ i have used MSSQL
   npm start
 
 ##  API Endpoints and Payload
-1.##  GET /api/object/:key
+1.## GET /api/object/:key
 Fetch a key-value object based on the specified key.
 
 URL: /api/object/:key
